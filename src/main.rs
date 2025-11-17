@@ -1,25 +1,29 @@
-//! VDL++ CLI - Vienna Definition Language Plus Plus
+//! VDL_2026 CLI - Vienna Definition Language 2026
 //!
-//! Command-line interface for VDL++ state-space exploration and verification.
+//! IMPLICIT NONE for kernel concurrency.
+//! Command-line interface for VDL_2026 state-space exploration and verification.
 
 use clap::{Parser, Subcommand};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use vdlpp::explorer::{generate_dot, ExplorerConfig};
-use vdlpp::models::rcu::{make_rcu_state, RcuExplorer, RCU_VDL_SOURCE};
+use vdl_2026::explorer::{generate_dot, ExplorerConfig};
+use vdl_2026::models::rcu::{make_rcu_state, RcuExplorer, RCU_VDL_SOURCE};
 
 #[derive(Parser)]
-#[command(name = "vdlpp")]
-#[command(about = "VDL++ - Vienna Definition Language Plus Plus")]
+#[command(name = "vdl_2026")]
+#[command(about = "VDL_2026 - IMPLICIT NONE for kernel concurrency")]
 #[command(long_about = r#"
-VDL++ - A Modern Successor to the Vienna Definition Language
+VDL_2026 - Vienna Definition Language 2026
 
-VDL++ combines denotational and operational semantics in the Vienna tradition
-for formal specification and state-space exploration of concurrent systems.
+IMPLICIT NONE for kernel concurrency.
 
-Flagship use case: Modeling RCU (Read-Copy-Update) semantics from the Linux kernel.
+Where implicit assumptions become explicit specifications.
+Where hidden state transitions become visible invariants.
+Where subtle bugs become counterexample traces.
 
-Heritage: IBM Vienna Laboratory → VDL → meta-IV → VDM-SL → VDL++
+Heritage: IBM Vienna Laboratory → VDL → meta-IV → VDM-SL → VDL_2026
+
+Flagship: Linux kernel RCU (Read-Copy-Update) formal semantics.
 "#)]
 #[command(version)]
 struct Cli {
@@ -60,12 +64,12 @@ enum Commands {
         stop_on_violation: bool,
     },
 
-    /// Show the VDL++ source for RCU model
+    /// Show the VDL_2026 source for RCU model
     ShowRcu,
 
-    /// Parse a VDL++ specification file
+    /// Parse a VDL_2026 specification file
     Parse {
-        /// Path to VDL++ source file
+        /// Path to VDL_2026 source file
         file: PathBuf,
     },
 
@@ -120,8 +124,10 @@ fn run_rcu_exploration(
     json_output: Option<PathBuf>,
     stop_on_violation: bool,
 ) {
-    println!("VDL++ RCU State-Space Explorer");
-    println!("================================");
+    println!("VDL_2026 RCU State-Space Explorer");
+    println!("===================================");
+    println!("IMPLICIT NONE: All state transitions explicit");
+    println!();
     println!("Configuration:");
     println!("  Max depth: {}", depth);
     println!("  Max states: {}", max_states);
@@ -218,7 +224,7 @@ fn run_rcu_exploration(
 
 fn parse_file(file: PathBuf) {
     match std::fs::read_to_string(&file) {
-        Ok(source) => match vdlpp::parse(&source) {
+        Ok(source) => match vdl_2026::parse(&source) {
             Ok(spec) => {
                 println!("Successfully parsed: {}", file.display());
                 println!();
@@ -253,31 +259,46 @@ fn parse_file(file: PathBuf) {
 fn print_info() {
     println!(
         r#"
-VDL++ - Vienna Definition Language Plus Plus
+VDL_2026 - Vienna Definition Language 2026
 Version: {}
 
-A Modern Successor to the Vienna Definition Language
+IMPLICIT NONE for kernel concurrency.
+
+Making the implicit explicit.
+Where hidden assumptions become visible specifications.
+Where subtle bugs become counterexample traces.
 
 HERITAGE:
 =========
-VDL++ honors the IBM Vienna Laboratory tradition:
+VDL_2026 honors the IBM Vienna Laboratory tradition:
 
   1970s: VDL (Vienna Definition Language)
          - Used for PL/I formal semantics
          - Operational semantic metalanguage
+         - mk_, is_, inv_ prefixes
 
   1980s: meta-IV
          - Cleaned-up typed successor to VDL
          - Denotational semantics core
+         - Pure mathematical domains
 
   1990s: VDM-SL (Vienna Development Method Spec Language)
          - BSI standard formal specification language
          - Built on meta-IV semantics
 
-  2025:  VDL++
-         - Modern hybrid operational/denotational semantics
-         - State-space exploration for concurrent systems
+  2026:  VDL_2026
+         - IMPLICIT NONE philosophy
+         - Explicit state semantics for concurrent systems
          - Flagship: Linux kernel RCU modeling
+         - No hidden transitions, no implicit assumptions
+
+PHILOSOPHY:
+===========
+Like Fortran's IMPLICIT NONE, VDL_2026 demands:
+  - Every state transition is explicit
+  - Every invariant is checkable
+  - Every assumption is visible
+  - Every violation has a trace
 
 FEATURES:
 =========
@@ -298,18 +319,18 @@ USE CASES:
 
 COMMANDS:
 =========
-  vdlpp rcu          Explore RCU state space
-  vdlpp show-rcu     Display RCU VDL++ model source
-  vdlpp parse <file> Parse a VDL++ specification
-  vdlpp info         Show this information
+  vdl_2026 rcu          Explore RCU state space
+  vdl_2026 show-rcu     Display RCU VDL_2026 model source
+  vdl_2026 parse <file> Parse a VDL_2026 specification
+  vdl_2026 info         Show this information
 
 EXAMPLE:
 ========
-  $ vdlpp rcu --depth 8 --readers 3 --graph rcu.dot
+  $ vdl_2026 rcu --depth 8 --readers 3 --graph rcu.dot
   $ dot -Tsvg rcu.dot > rcu.svg
 
-For the Vienna Lab alumni: Executable semantics live again.
+For the Vienna Lab alumni: IMPLICIT NONE lives again.
 "#,
-        vdlpp::VERSION
+        vdl_2026::VERSION
     );
 }

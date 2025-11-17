@@ -1,15 +1,21 @@
-//! VDL++ - Vienna Definition Language Plus Plus
+//! VDL_2026 - Vienna Definition Language 2026
+//!
+//! IMPLICIT NONE for kernel concurrency.
 //!
 //! A modern successor to the Vienna Definition Language for formal
 //! specification and state-space exploration.
 //!
-//! VDL++ combines:
+//! VDL_2026 combines:
 //! - Denotational semantics for types, expressions, and invariants (meta-IV heritage)
 //! - Operational semantics for state transitions (small-step semantics)
+//! - IMPLICIT NONE philosophy: no hidden state, no implicit assumptions
 //!
 //! This implementation honors the Vienna Lab tradition while bringing
 //! executable formal specifications to modern systems, particularly
 //! for modeling concurrent protocols like Linux kernel's RCU.
+//!
+//! Like Fortran's IMPLICIT NONE, every transition is explicit,
+//! every invariant is visible, every assumption is checkable.
 
 pub mod ast;
 pub mod error;

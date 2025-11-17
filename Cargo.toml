@@ -1,15 +1,15 @@
 [package]
-name = "vdlpp"
+name = "vdl_2026"
 version = "0.1.0"
 edition = "2024"
-description = "VDL++ - A modern successor to the Vienna Definition Language for formal specification and state-space exploration"
+description = "VDL_2026 - IMPLICIT NONE for kernel concurrency. Modern Vienna Definition Language with explicit state semantics."
 authors = ["Vienna Lab Alumni"]
 license = "MIT"
-keywords = ["formal-methods", "specification", "state-machine", "rcu", "verification"]
+keywords = ["formal-methods", "specification", "state-machine", "rcu", "verification", "implicit-none"]
 categories = ["development-tools", "science"]
 
 [[bin]]
-name = "vdlpp"
+name = "vdl_2026"
 path = "src/main.rs"
 
 [dependencies]

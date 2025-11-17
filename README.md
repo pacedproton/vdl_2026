@@ -1,22 +1,39 @@
-# VDL++ - Vienna Definition Language Plus Plus
+# VDL_2026 - Vienna Definition Language 2026
 
-**A Modern Successor to the Vienna Definition Language for Formal Specification and State-Space Exploration**
+**IMPLICIT NONE for kernel concurrency.**
 
-VDL++ combines **denotational** and **operational semantics** in the Vienna tradition for formal specification and state-space exploration of concurrent systems.
+A Modern Successor to the Vienna Definition Language for Formal Specification and State-Space Exploration.
+
+```
+Where implicit assumptions become explicit specifications.
+Where hidden state transitions become visible invariants.
+Where subtle bugs become counterexample traces.
+```
 
 **Flagship Use Case:** Modeling RCU (Read-Copy-Update) semantics from the Linux kernel.
+
+## IMPLICIT NONE Philosophy
+
+Like Fortran's `IMPLICIT NONE` directive that demands explicit type declarations, VDL_2026 demands:
+- Every state transition is **explicit**
+- Every invariant is **checkable**
+- Every assumption is **visible**
+- Every violation has a **trace**
+
+No implicit state. No hidden assumptions. No subtle bugs.
 
 ## Heritage
 
 ```
-IBM Vienna Laboratory → VDL → meta-IV → VDM-SL → VDL++
+IBM Vienna Laboratory → VDL → meta-IV → VDM-SL → VDL_2026
 ```
 
-VDL++ honors the IBM Vienna Laboratory tradition:
+VDL_2026 honors the IBM Vienna Laboratory tradition:
 
 - **1970s: VDL** (Vienna Definition Language)
   - Used for PL/I formal semantics
   - Operational semantic metalanguage at IBM Vienna Lab
+  - mk_, is_, inv_ prefixes
 
 - **1980s: meta-IV**
   - Cleaned-up, typed successor to VDL
@@ -28,10 +45,10 @@ VDL++ honors the IBM Vienna Laboratory tradition:
   - Built on meta-IV semantics
   - Industrial-strength specification tool
 
-- **2025: VDL++**
-  - Modern hybrid operational/denotational semantics
-  - State-space exploration for concurrent systems
-  - Executable specifications with invariant checking
+- **2026: VDL_2026**
+  - IMPLICIT NONE for concurrent systems
+  - Explicit state semantics with operational/denotational hybrid
+  - State-space exploration with invariant checking
   - Focus on Linux kernel primitives (RCU, seqlocks, etc.)
 
 ## Features
@@ -48,8 +65,8 @@ VDL++ honors the IBM Vienna Laboratory tradition:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/vdlpp.git
-cd vdlpp
+git clone https://github.com/your-repo/vdl_2026.git
+cd vdl_2026
 
 # Build
 cargo build --release
@@ -64,40 +81,42 @@ cargo install --path .
 
 ```bash
 # Basic RCU exploration
-vdlpp rcu
+vdl_2026 rcu
 
 # With custom parameters
-vdlpp rcu --depth 8 --readers 3 --callbacks 2
+vdl_2026 rcu --depth 8 --readers 3 --callbacks 2
 
 # Generate visualization
-vdlpp rcu --graph rcu.dot
+vdl_2026 rcu --graph rcu.dot
 dot -Tsvg rcu.dot > rcu.svg
 
 # Export JSON trace for analysis
-vdlpp rcu --json trace.json
+vdl_2026 rcu --json trace.json
 ```
 
 ### View RCU Model Source
 
 ```bash
-vdlpp show-rcu
+vdl_2026 show-rcu
 ```
 
-### Parse a VDL++ Specification
+### Parse a VDL_2026 Specification
 
 ```bash
-vdlpp parse myspec.vdl
+vdl_2026 parse myspec.vdl
 ```
 
 ### Display Heritage Information
 
 ```bash
-vdlpp info
+vdl_2026 info
 ```
 
-## VDL++ Syntax
+## VDL_2026 Syntax
 
-VDL++ uses a modern ML/TypeScript-inspired syntax while maintaining semantic rigor from the Vienna tradition.
+VDL_2026 uses a modern ML/TypeScript-inspired syntax while maintaining semantic rigor from the Vienna tradition.
+
+The syntax emphasizes **explicit state** — every transition, every invariant, every assumption must be visible.
 
 ### Type Definitions (Denotational Domains)
 
@@ -156,25 +175,25 @@ fun partitionCallbacks(cbs: List<Callback>, epoch: Nat) -> (List<Callback>, List
 
 ## Semantics
 
-VDL++ implements a **hybrid semantic approach**:
+VDL_2026 implements a **hybrid semantic approach** with **IMPLICIT NONE** philosophy:
 
-### Denotational Core
-- Types define mathematical domains
-- Expressions have denotational meaning
-- Invariants are predicates over domains
-- Functions are mathematical mappings
+### Denotational Core (What)
+- Types define mathematical domains — **explicit structure**
+- Expressions have denotational meaning — **explicit values**
+- Invariants are predicates over domains — **explicit constraints**
+- Functions are mathematical mappings — **explicit transformations**
 
-### Operational Layer
-- Transitions are state transformers
-- Pre/post conditions define valid transitions
-- Small-step semantics for execution
-- Trace generation for debugging
+### Operational Layer (How)
+- Transitions are state transformers — **explicit steps**
+- Pre/post conditions define valid transitions — **explicit guards**
+- Small-step semantics for execution — **explicit traces**
+- Trace generation for debugging — **explicit violations**
 
-This hybrid approach is faithful to the meta-IV tradition where denotational foundations support operational rules.
+This hybrid approach is faithful to the meta-IV tradition where denotational foundations support operational rules. The IMPLICIT NONE philosophy ensures nothing is hidden.
 
 ## RCU Model
 
-The flagship model demonstrates VDL++ capabilities by formalizing the Linux kernel's RCU (Read-Copy-Update) synchronization primitive:
+The flagship model demonstrates VDL_2026 capabilities by formalizing the Linux kernel's RCU (Read-Copy-Update) synchronization primitive:
 
 - **Read-side critical sections**: `rcu_read_lock()`, `rcu_read_unlock()`
 - **Grace periods**: `start_grace_period()`, `end_grace_period()`
@@ -199,37 +218,37 @@ The explorer can:
 ## Architecture
 
 ```
-┌─────────────────┐
-│   VDL++ Source  │
-└────────┬────────┘
-         │
-    ┌────▼────┐
-    │  Lexer  │
-    └────┬────┘
-         │
-    ┌────▼────┐
-    │  Parser │
-    └────┬────┘
-         │
-    ┌────▼────────┐
-    │     AST     │ (Denotational structure)
-    └────┬────────┘
-         │
-    ┌────▼────────┐
-    │  Evaluator  │ (Expression semantics)
-    └────┬────────┘
-         │
-    ┌────▼────────────┐
-    │  State Explorer │ (Operational semantics)
-    └────┬────────────┘
-         │
-    ┌────▼──────────┐
-    │   Outputs     │
-    │ - Traces      │
-    │ - Violations  │
-    │ - DOT graphs  │
-    │ - JSON        │
-    └───────────────┘
+┌───────────────────┐
+│  VDL_2026 Source  │  IMPLICIT NONE: Explicit specifications
+└─────────┬─────────┘
+          │
+     ┌────▼────┐
+     │  Lexer  │
+     └────┬────┘
+          │
+     ┌────▼────┐
+     │  Parser │
+     └────┬────┘
+          │
+     ┌────▼────────┐
+     │     AST     │ (Denotational structure - explicit domains)
+     └────┬────────┘
+          │
+     ┌────▼────────┐
+     │  Evaluator  │ (Expression semantics - explicit values)
+     └────┬────────┘
+          │
+     ┌────▼────────────┐
+     │  State Explorer │ (Operational semantics - explicit traces)
+     └────┬────────────┘
+          │
+     ┌────▼──────────┐
+     │   Outputs     │  IMPLICIT NONE: Explicit results
+     │ - Traces      │  (every step visible)
+     │ - Violations  │  (every bug caught)
+     │ - DOT graphs  │  (every state shown)
+     │ - JSON        │  (every detail exported)
+     └───────────────┘
 ```
 
 ## Project Structure
@@ -252,7 +271,7 @@ src/
 
 ## Future Directions
 
-- **Enhanced parser** for full VDL++ syntax
+- **Enhanced parser** for full VDL_2026 syntax
 - **VS Code extension** with Language Server Protocol (LSP)
 - **Web IDE** with Monaco editor and WASM backend
 - **Litmus test generation** compatible with LKMM
@@ -260,10 +279,11 @@ src/
 - **Memory ordering constraints** integration
 - **Symbolic execution** for deeper analysis
 - **Property-based testing** generation from specs
+- **mk_, is_, inv_ prefixes** for authentic Vienna-style syntax
 
 ## For Kernel Developers
 
-VDL++ aims to provide:
+VDL_2026 aims to provide:
 - Executable documentation for RCU semantics
 - Automated test generation from formal specs
 - Counterexample traces for bug reproduction
@@ -291,7 +311,7 @@ This project honors the legacy of the IBM Vienna Laboratory and the formal metho
 - The meta-IV metalanguage
 - The Vienna Development Method
 
-VDL++ is a modern continuation of this mathematical tradition, bringing executable formal specifications to contemporary systems programming challenges.
+VDL_2026 is a modern continuation of this mathematical tradition, bringing executable formal specifications with IMPLICIT NONE philosophy to contemporary systems programming challenges.
 
 ## License
 
@@ -299,4 +319,8 @@ MIT License
 
 ---
 
-*"For the Vienna Lab alumni: Executable semantics live again."*
+*"For the Vienna Lab alumni: IMPLICIT NONE lives again."*
+
+```
+VDL_2026: No implicit state. No hidden assumptions. No subtle bugs.
+```
