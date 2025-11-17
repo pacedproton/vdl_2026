@@ -1,0 +1,19 @@
+/target
+Cargo.lock
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Output files
+*.dot
+*.svg
+*.json
+!examples/*.json
+
+# OS files
+.DS_Store
+Thumbs.db
