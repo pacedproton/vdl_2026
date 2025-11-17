@@ -21,7 +21,7 @@ Where implicit assumptions become explicit specifications.
 Where hidden state transitions become visible invariants.
 Where subtle bugs become counterexample traces.
 
-Heritage: IBM Vienna Laboratory → VDL → meta-IV → VDM-SL → VDL_2026
+Heritage: IBM Vienna Laboratory → VDL → meta-IV → VDL_2026 (direct revival)
 
 Flagship: Linux kernel RCU (Read-Copy-Update) formal semantics.
 "#)]
@@ -270,7 +270,7 @@ Where subtle bugs become counterexample traces.
 
 HERITAGE:
 =========
-VDL_2026 honors the IBM Vienna Laboratory tradition:
+VDL_2026 is a direct revival of the VDL/meta-IV tradition:
 
   1970s: VDL (Vienna Definition Language)
          - Used for PL/I formal semantics
@@ -281,16 +281,14 @@ VDL_2026 honors the IBM Vienna Laboratory tradition:
          - Cleaned-up typed successor to VDL
          - Denotational semantics core
          - Pure mathematical domains
-
-  1990s: VDM-SL (Vienna Development Method Spec Language)
-         - BSI standard formal specification language
-         - Built on meta-IV semantics
-
-  2026:  VDL_2026
-         - IMPLICIT NONE philosophy
-         - Explicit state semantics for concurrent systems
-         - Flagship: Linux kernel RCU modeling
-         - No hidden transitions, no implicit assumptions
+                    │
+           ┌────────┴────────┐
+           ▼                 ▼
+  1990s: VDM-SL         2026: VDL_2026
+         (BSI standard)       (Direct revival)
+         Industrial path      IMPLICIT NONE
+                              Concurrent systems
+                              Linux kernel RCU
 
 PHILOSOPHY:
 ===========

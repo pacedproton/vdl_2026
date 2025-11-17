@@ -25,10 +25,12 @@ No implicit state. No hidden assumptions. No subtle bugs.
 ## Heritage
 
 ```
-IBM Vienna Laboratory → VDL → meta-IV → VDM-SL → VDL_2026
+IBM Vienna Laboratory → VDL → meta-IV ─┬─→ VDM-SL (1990s industrial standard)
+                                        │
+                                        └─→ VDL_2026 (2026 revival)
 ```
 
-VDL_2026 honors the IBM Vienna Laboratory tradition:
+VDL_2026 is a direct successor to VDL/meta-IV, reviving the original Vienna Definition Language tradition for modern concurrent systems:
 
 - **1970s: VDL** (Vienna Definition Language)
   - Used for PL/I formal semantics
@@ -43,12 +45,12 @@ VDL_2026 honors the IBM Vienna Laboratory tradition:
 - **1990s: VDM-SL** (Vienna Development Method Specification Language)
   - BSI standard formal specification language
   - Built on meta-IV semantics
-  - Industrial-strength specification tool
+  - Industrial-strength specification tool (sibling branch)
 
 - **2026: VDL_2026**
-  - IMPLICIT NONE for concurrent systems
+  - Direct revival of VDL/meta-IV for concurrent systems
+  - IMPLICIT NONE philosophy
   - Explicit state semantics with operational/denotational hybrid
-  - State-space exploration with invariant checking
   - Focus on Linux kernel primitives (RCU, seqlocks, etc.)
 
 ## Features

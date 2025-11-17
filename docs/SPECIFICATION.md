@@ -22,11 +22,16 @@ IBM Vienna Laboratory (1970s)
 VDL (Vienna Definition Language)
     ↓
 meta-IV (typed metalanguage)
-    ↓
-VDM-SL (BSI standard)
-    ↓
-VDL_2026 (IMPLICIT NONE)
+    ├─────────────────┐
+    ↓                 ↓
+VDM-SL            VDL_2026
+(BSI standard)    (Direct revival)
+(1990s)           (2026)
+Industrial        IMPLICIT NONE
+path              Concurrent systems
 ```
+
+VDL_2026 is a direct successor to VDL/meta-IV, not to VDM-SL. While VDM-SL evolved toward industrial standardization, VDL_2026 revives the original operational/denotational metalanguage tradition for modern concurrent systems.
 
 ### 1.3 Design Principles
 
