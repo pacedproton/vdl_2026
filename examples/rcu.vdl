@@ -1,0 +1,70 @@
+// VDL++ RCU (Read-Copy-Update) Semantic Model
+// A formal specification of core RCU API semantics
+// Inspired by the Vienna Definition Method tradition
+
+// Type definitions (denotational domains)
+type ReaderId = Nat
+
+type Callback = {
+    id: Nat,
+    targetEpoch: Nat
+}
+
+type RCU = {
+    readers: Set<Nat>,
+    epoch: Nat,
+    gpActive: Bool,
+    pendingCallbacks: List<Callback>,
+    completedCallbacks: List<Callback>
+}
+
+// Safety invariant: pending callbacks should not target past epochs
+inv callback_safety(s: RCU) =>
+    forall cb in s.pendingCallbacks:
+        cb.targetEpoch >= s.epoch
+
+// Basic epoch validity
+inv epoch_valid(s: RCU) =>
+    s.epoch >= 0
+
+// Enter read-side critical section
+transition rcu_read_lock(r: Nat, s: RCU) -> RCU
+    pre !member(r, s.readers)
+    post s' =>
+        s' == s with [readers = s.readers union {r}]
+
+// Exit read-side critical section
+transition rcu_read_unlock(r: Nat, s: RCU) -> RCU
+    pre member(r, s.readers)
+    post s' =>
+        s' == s with [readers = s.readers \ {r}]
+
+// Start a new grace period (advance epoch)
+transition start_grace_period(s: RCU) -> RCU
+    pre !s.gpActive
+    post s' =>
+        s' == s with [gpActive = true, epoch = s.epoch + 1]
+
+// End grace period (only when no readers)
+transition end_grace_period(s: RCU) -> RCU
+    pre s.gpActive && isEmpty(s.readers)
+    post s' =>
+        s' == s with [gpActive = false]
+
+// Queue a callback for execution after current grace period
+transition call_rcu(cbId: Nat, s: RCU) -> RCU
+    pre true
+    post s' =>
+        let cb = {id = cbId, targetEpoch = s.epoch} in
+        s' == s with [pendingCallbacks = s.pendingCallbacks ++ [cb]]
+
+// Execute callbacks whose target epoch has passed
+transition run_ready_callbacks(s: RCU) -> RCU
+    pre true
+    post s' =>
+        let ready = filter(s.pendingCallbacks, cb => cb.targetEpoch <= s.epoch) in
+        let notReady = filter(s.pendingCallbacks, cb => cb.targetEpoch > s.epoch) in
+        s' == s with [
+            pendingCallbacks = notReady,
+            completedCallbacks = s.completedCallbacks ++ ready
+        ]
