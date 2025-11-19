@@ -1,0 +1,155 @@
+// Tutorial 5: Key-Value Store
+// ===========================
+//
+// LEARNING OBJECTIVES:
+// - Work with Map types
+// - Use record fields and updates
+// - Implement CRUD operations (Create, Read, Update, Delete)
+// - Handle optional values
+//
+// CONCEPTS COVERED:
+// - Map<K, V> type
+// - Map operations: dom, rng, with, munion
+// - Record field access: s.field
+// - Record field update: s with [field |-> value]
+// - Conditional expressions
+//
+// COMPLEXITY: ⭐⭐⭐ (Intermediate)
+
+type Key = Nat
+type Value = Int
+
+// State: A key-value store with metadata
+type KVStore = {
+  data: Map<Key, Value>,        // The actual key-value mappings
+  size: Nat,                    // Number of entries
+  capacity: Nat,                // Maximum entries allowed
+  operations: Nat               // Total operations performed
+}
+
+// TYPE INVARIANT: Size matches map cardinality
+inv size_matches_map(s: KVStore) =
+  s.size == card(dom(s.data))
+
+// CAPACITY INVARIANT: Size never exceeds capacity
+inv size_bounded(s: KVStore) =
+  s.size <= s.capacity
+
+// CAPACITY INVARIANT: Capacity is reasonable
+inv capacity_reasonable(s: KVStore) =
+  s.capacity <= 1000
+
+// Transition: Insert or update a key-value pair
+transition put(s: KVStore, key: Key, value: Value) -> KVStore
+pre (key not_in dom(s.data) implies s.size < s.capacity) and
+    key < 1000                              // Key range limit
+post s'.data == s.data with [key |-> value] and
+     s'.size == (if key in dom(s.data)
+                 then s.size                // Update: size unchanged
+                 else s.size + 1) and       // Insert: size increases
+     s'.capacity == s.capacity and
+     s'.operations == s.operations + 1
+
+// Transition: Remove a key-value pair
+transition remove(s: KVStore, key: Key) -> KVStore
+pre key in dom(s.data)                      // Key must exist
+post s'.data == s.data \ {key} and
+     s'.size == s.size - 1 and
+     s'.capacity == s.capacity and
+     s'.operations == s.operations + 1
+
+// Transition: Clear all entries
+transition clear(s: KVStore) -> KVStore
+pre true
+post s'.data == {} and
+     s'.size == 0 and
+     s'.capacity == s.capacity and
+     s'.operations == s.operations + 1
+
+// Transition: Increase capacity
+transition expand(s: KVStore, additional: Nat) -> KVStore
+pre s.capacity + additional <= 1000         // Don't exceed max
+post s'.data == s.data and
+     s'.size == s.size and
+     s'.capacity == s.capacity + additional and
+     s'.operations == s.operations
+
+// Transition: Bulk insert (multiple key-value pairs)
+transition bulk_insert(s: KVStore, pairs: Map<Key, Value>) -> KVStore
+pre (forall k in dom(pairs): k < 1000) and
+    s.size + card(dom(pairs)) <= s.capacity and
+    (dom(pairs) intersect dom(s.data)) == {}  // No key conflicts
+post s'.data == s.data munion pairs and
+     s'.size == s.size + card(dom(pairs)) and
+     s'.capacity == s.capacity and
+     s'.operations == s.operations + 1
+
+// Helper: Check if key exists
+fun contains(s: KVStore, key: Key) -> Bool =
+  key in dom(s.data)
+
+// Helper: Get value for key (returns 0 if not found, in real system would use Option)
+fun get(s: KVStore, key: Key) -> Int =
+  if key in dom(s.data)
+  then s.data(key)
+  else 0
+
+// Helper: Check if store is empty
+fun is_empty(s: KVStore) -> Bool =
+  s.size == 0
+
+// Helper: Check if store is full
+fun is_full(s: KVStore) -> Bool =
+  s.size == s.capacity
+
+// Helper: Get all keys as set
+fun keys(s: KVStore) -> Set<Key> =
+  dom(s.data)
+
+// Helper: Get all values as set
+fun values(s: KVStore) -> Set<Value> =
+  rng(s.data)
+
+// EXPECTED BEHAVIOR:
+//
+// Initial: {data = {}, size = 0, capacity = 10, operations = 0}
+//
+// Sequence 1 (basic CRUD):
+//   put(1, 100)  -> {data = {1->100}, size = 1, capacity = 10, ops = 1}
+//   put(2, 200)  -> {data = {1->100, 2->200}, size = 2, capacity = 10, ops = 2}
+//   put(1, 150)  -> {data = {1->150, 2->200}, size = 2, capacity = 10, ops = 3}
+//                   (update: size unchanged)
+//   remove(2)    -> {data = {1->150}, size = 1, capacity = 10, ops = 4}
+//   remove(2)    -> BLOCKED (pre: 2 not in dom(data))
+//   clear()      -> {data = {}, size = 0, capacity = 10, ops = 5}
+//
+// Sequence 2 (capacity):
+//   put(1,10) ... put(10,100) -> {size = 10, capacity = 10}
+//   put(11, 110) -> BLOCKED (pre: size < capacity fails)
+//   expand(5)    -> {size = 10, capacity = 15, ops = 10}
+//   put(11, 110) -> {size = 11, capacity = 15, ops = 11} ✓
+//
+// Sequence 3 (bulk operations):
+//   bulk_insert({1->10, 2->20, 3->30})
+//     -> {data = {1->10, 2->20, 3->30}, size = 3, capacity = 10, ops = 1}
+//   bulk_insert({1->15}) -> BLOCKED (pre: key conflict with dom(data))
+//   bulk_insert({4->40, 5->50})
+//     -> {data = {1->10, 2->20, 3->30, 4->40, 5->50}, size = 5, ops = 2}
+//
+// INVARIANTS TO VERIFY:
+// ✓ size_matches_map: Always s.size == card(dom(s.data))
+// ✓ size_bounded: Always s.size <= s.capacity
+// ✓ capacity_reasonable: Always s.capacity <= 1000
+//
+// INTERESTING PROPERTIES:
+// 1. After put(k,v1) then put(k,v2), get(k) returns v2
+// 2. After remove(k), contains(k) returns false
+// 3. After clear(), is_empty() returns true
+// 4. Can never put when is_full() unless expand() first
+//
+// TRY IT:
+// 1. Start with capacity=5, insert 5 items, try 6th (blocked)
+// 2. Put same key twice, verify size doesn't change
+// 3. Remove non-existent key (blocked)
+// 4. Bulk insert with overlapping keys (blocked)
+// 5. Verify invariants hold in all reachable states

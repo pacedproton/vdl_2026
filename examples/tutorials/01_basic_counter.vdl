@@ -1,0 +1,72 @@
+// Tutorial 1: Basic Counter
+// ========================
+//
+// LEARNING OBJECTIVES:
+// - Understand basic VDL_2026 syntax
+// - Define simple state with Nat type
+// - Write transitions with pre/post conditions
+// - Use basic arithmetic operations
+//
+// CONCEPTS COVERED:
+// - Type definitions (type ... = { ... })
+// - Natural numbers (Nat)
+// - Boolean values (Bool)
+// - State transitions (transition ... -> ...)
+// - Preconditions (pre ...)
+// - Postconditions (post ...)
+//
+// COMPLEXITY: ⭐ (Beginner)
+
+// State definition: A simple counter with a running flag
+type CounterState = {
+  count: Nat,      // The counter value (0, 1, 2, ...)
+  running: Bool    // Is the counter active?
+}
+
+// Transition 1: Increment the counter
+// This transition increases the counter by 1
+transition increment(s: CounterState) -> CounterState
+pre s.running == true           // Only increment if running
+post s'.count == s.count + 1 and
+     s'.running == s.running     // Keep running state unchanged
+
+// Transition 2: Decrement the counter
+// This transition decreases the counter by 1
+transition decrement(s: CounterState) -> CounterState
+pre s.running == true and
+    s.count > 0                  // Can't go below 0 (Nat type)
+post s'.count == s.count - 1 and
+     s'.running == s.running
+
+// Transition 3: Reset the counter to zero
+transition reset(s: CounterState) -> CounterState
+pre true                         // Can always reset
+post s'.count == 0 and
+     s'.running == s.running
+
+// Transition 4: Start the counter
+transition start(s: CounterState) -> CounterState
+pre s.running == false           // Only start if stopped
+post s'.count == s.count and
+     s'.running == true
+
+// Transition 5: Stop the counter
+transition stop(s: CounterState) -> CounterState
+pre s.running == true            // Only stop if running
+post s'.count == s.count and
+     s'.running == false
+
+// EXPECTED BEHAVIOR:
+// - Starting state: {count = 0, running = false}
+// - After start: {count = 0, running = true}
+// - After increment: {count = 1, running = true}
+// - After increment: {count = 2, running = true}
+// - After decrement: {count = 1, running = true}
+// - After stop: {count = 1, running = false}
+// - increment blocked (pre-condition fails)
+// - After reset: {count = 0, running = false}
+//
+// TRY IT:
+// 1. Parse: cargo run -- parse examples/tutorials/01_basic_counter.vdl
+// 2. Test:  cargo test tutorial_01
+// 3. Explore different sequences of transitions

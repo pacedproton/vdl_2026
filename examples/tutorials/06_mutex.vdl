@@ -1,0 +1,189 @@
+// Tutorial 6: Mutual Exclusion Protocol
+// =====================================
+//
+// LEARNING OBJECTIVES:
+// - Model multi-process synchronization
+// - Enforce mutual exclusion invariants
+// - Handle process states and ownership
+// - Reason about concurrent access
+//
+// CONCEPTS COVERED:
+// - Process IDs and ownership
+// - Critical section protection
+// - Lock/unlock protocol
+// - Mutual exclusion invariant
+// - Deadlock-free property
+//
+// COMPLEXITY: ⭐⭐⭐⭐ (Advanced)
+
+type ProcessId = Nat
+
+// State: A mutex protecting a critical section
+type MutexState = {
+  locked: Bool,              // Is mutex currently locked?
+  holder: Nat,               // Process ID holding lock (0 = none)
+  waiting: Set<ProcessId>,   // Processes waiting for lock
+  in_critical: Set<ProcessId>  // Processes in critical section
+}
+
+// SAFETY INVARIANT: Mutual exclusion
+// At most one process in critical section
+inv mutual_exclusion(s: MutexState) =
+  card(s.in_critical) <= 1
+
+// SAFETY INVARIANT: Lock consistency
+// If locked, exactly one holder and one in critical section
+inv lock_consistency(s: MutexState) =
+  s.locked iff (s.holder != 0 and card(s.in_critical) == 1)
+
+// SAFETY INVARIANT: Holder in critical section
+// The holder must be the one in the critical section
+inv holder_in_critical(s: MutexState) =
+  s.locked implies (s.in_critical == {s.holder})
+
+// SAFETY INVARIANT: Disjoint waiting and critical
+// Can't be both waiting and in critical section
+inv waiting_disjoint_critical(s: MutexState) =
+  s.waiting intersect s.in_critical == {}
+
+// SAFETY INVARIANT: Valid process IDs
+inv valid_process_ids(s: MutexState) =
+  (s.holder == 0 or s.holder < 100) and
+  (forall p in s.waiting: p < 100) and
+  (forall p in s.in_critical: p < 100)
+
+// Transition: Process requests lock
+transition lock_request(s: MutexState, pid: ProcessId) -> MutexState
+pre pid > 0 and
+    pid < 100 and
+    pid not_in s.waiting and
+    pid not_in s.in_critical
+post (if s.locked
+      then s'.locked == true and                    // Lock held: join queue
+           s'.holder == s.holder and
+           s'.waiting == s.waiting union {pid} and
+           s'.in_critical == s.in_critical
+      else s'.locked == true and                    // Lock free: acquire
+           s'.holder == pid and
+           s'.waiting == s.waiting and
+           s'.in_critical == {pid})
+
+// Transition: Process acquires lock from waiting queue
+transition lock_acquire(s: MutexState, pid: ProcessId) -> MutexState
+pre not s.locked and
+    pid in s.waiting
+post s'.locked == true and
+     s'.holder == pid and
+     s'.waiting == s.waiting \ {pid} and
+     s'.in_critical == {pid}
+
+// Transition: Process releases lock
+transition unlock(s: MutexState, pid: ProcessId) -> MutexState
+pre s.locked and
+    s.holder == pid and
+    pid in s.in_critical
+post s'.locked == false and
+     s'.holder == 0 and
+     s'.waiting == s.waiting and
+     s'.in_critical == {}
+
+// Transition: Process cancels waiting
+transition cancel_wait(s: MutexState, pid: ProcessId) -> MutexState
+pre pid in s.waiting
+post s'.locked == s.locked and
+     s'.holder == s.holder and
+     s'.waiting == s.waiting \ {pid} and
+     s'.in_critical == s.in_critical
+
+// Helper: Check if process holds lock
+fun holds_lock(s: MutexState, pid: ProcessId) -> Bool =
+  s.locked and s.holder == pid
+
+// Helper: Check if process is waiting
+fun is_waiting(s: MutexState, pid: ProcessId) -> Bool =
+  pid in s.waiting
+
+// Helper: Check if process is in critical section
+fun in_critical_section(s: MutexState, pid: ProcessId) -> Bool =
+  pid in s.in_critical
+
+// Helper: Number of waiting processes
+fun num_waiting(s: MutexState) -> Nat =
+  card(s.waiting)
+
+// PROTOCOL DESCRIPTION:
+//
+// A process follows this lifecycle:
+// 1. IDLE: Not involved with mutex
+// 2. REQUESTING: Calls lock_request(pid)
+//    - If lock free: immediately enters critical section
+//    - If lock held: added to waiting set
+// 3. WAITING: In waiting set
+//    - Can lock_acquire when lock becomes free
+//    - Can cancel_wait to give up
+// 4. CRITICAL: In critical section, holds lock
+//    - Performs work (modeled implicitly)
+//    - Calls unlock(pid) when done
+// 5. Back to IDLE
+//
+// EXPECTED BEHAVIOR:
+//
+// Initial: {locked = false, holder = 0, waiting = {}, in_critical = {}}
+//
+// Sequence 1 (single process):
+//   lock_request(1) -> {locked = true, holder = 1, waiting = {}, in_critical = {1}}
+//   unlock(1)       -> {locked = false, holder = 0, waiting = {}, in_critical = {}}
+//   ✓ Mutual exclusion: only process 1 in critical section
+//
+// Sequence 2 (contention):
+//   lock_request(1) -> {locked = true, holder = 1, waiting = {}, in_critical = {1}}
+//   lock_request(2) -> {locked = true, holder = 1, waiting = {2}, in_critical = {1}}
+//   lock_request(3) -> {locked = true, holder = 1, waiting = {2,3}, in_critical = {1}}
+//   unlock(1)       -> {locked = false, holder = 0, waiting = {2,3}, in_critical = {}}
+//   lock_acquire(2) -> {locked = true, holder = 2, waiting = {3}, in_critical = {2}}
+//   unlock(2)       -> {locked = false, holder = 0, waiting = {3}, in_critical = {}}
+//   lock_acquire(3) -> {locked = true, holder = 3, waiting = {}, in_critical = {3}}
+//   unlock(3)       -> {locked = false, holder = 0, waiting = {}, in_critical = {}}
+//   ✓ Processes acquire lock in turn
+//   ✓ Never more than 1 in critical section
+//
+// Sequence 3 (cancellation):
+//   lock_request(1) -> {locked = true, holder = 1, waiting = {}, in_critical = {1}}
+//   lock_request(2) -> {locked = true, holder = 1, waiting = {2}, in_critical = {1}}
+//   cancel_wait(2)  -> {locked = true, holder = 1, waiting = {}, in_critical = {1}}
+//   unlock(1)       -> {locked = false, holder = 0, waiting = {}, in_critical = {}}
+//   ✓ Process 2 gives up waiting
+//
+// INVARIANTS TO VERIFY:
+// ✓ mutual_exclusion: card(in_critical) <= 1 ALWAYS
+// ✓ lock_consistency: locked ⇔ (holder ≠ 0 ∧ |in_critical| = 1)
+// ✓ holder_in_critical: locked ⇒ in_critical = {holder}
+// ✓ waiting_disjoint_critical: waiting ∩ in_critical = ∅
+//
+// PROPERTIES TO EXPLORE:
+// 1. Deadlock freedom: If waiting is non-empty and lock free,
+//    some waiting process can acquire
+// 2. Starvation freedom: (requires fairness assumptions)
+//    If process waits long enough, eventually acquires
+// 3. Progress: If lock free, some process can enter critical section
+//
+// VIOLATIONS TO TEST:
+// ✗ Two processes call lock_request simultaneously
+//   → Only first succeeds, second waits
+// ✗ Process unlocks without holding lock
+//   → Pre-condition blocks this
+// ✗ Process in critical section doesn't hold lock
+//   → Impossible by construction
+//
+// TRY IT:
+// 1. Model 3 processes competing for mutex
+// 2. Verify mutual exclusion holds in ALL states
+// 3. Check: can 2 processes be in critical section simultaneously? (No!)
+// 4. What happens if holder doesn't unlock? (System stuck, needs timeout)
+// 5. Explore state space with different process counts
+//
+// EXTENSION IDEAS:
+// - Add timeouts for lock acquisition
+// - Implement fair queueing (FIFO order)
+// - Add priority levels for processes
+// - Model recursive locks (same process can lock multiple times)

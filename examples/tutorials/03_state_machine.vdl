@@ -1,0 +1,122 @@
+// Tutorial 3: State Machine
+// =========================
+//
+// LEARNING OBJECTIVES:
+// - Model state machines with explicit states
+// - Use guards for conditional transitions
+// - Implement timeout and error handling
+//
+// CONCEPTS COVERED:
+// - Enumerated state values (using Nat as state encoding)
+// - Guard conditions (pre ...)
+// - State transition tables
+// - Error states and recovery
+//
+// COMPLEXITY: ⭐⭐ (Intermediate)
+
+// State encoding (using Nat for simplicity):
+// 0 = Idle
+// 1 = Connecting
+// 2 = Connected
+// 3 = Disconnecting
+// 4 = Error
+
+type ConnectionState = {
+  state: Nat,          // Current state (0-4)
+  retry_count: Nat,    // Number of connection retries
+  timeout: Nat         // Timeout counter
+}
+
+// Invariant: State is valid (0-4)
+inv valid_state(s: ConnectionState) =
+  s.state <= 4
+
+// Invariant: Retry count is bounded
+inv retry_bounded(s: ConnectionState) =
+  s.retry_count <= 3
+
+// Transition: Start connecting from idle
+transition connect(s: ConnectionState) -> ConnectionState
+pre s.state == 0                    // Must be Idle
+post s'.state == 1 and              // Move to Connecting
+     s'.retry_count == 0 and
+     s'.timeout == 10
+
+// Transition: Connection succeeds
+transition connection_established(s: ConnectionState) -> ConnectionState
+pre s.state == 1                    // Must be Connecting
+post s'.state == 2 and              // Move to Connected
+     s'.retry_count == s.retry_count and
+     s'.timeout == 0
+
+// Transition: Connection fails
+transition connection_failed(s: ConnectionState) -> ConnectionState
+pre s.state == 1                    // Must be Connecting
+post (if s.retry_count < 3
+      then s'.state == 1 and        // Retry: stay in Connecting
+           s'.retry_count == s.retry_count + 1 and
+           s'.timeout == 10
+      else s'.state == 4 and        // Give up: move to Error
+           s'.retry_count == s.retry_count and
+           s'.timeout == 0)
+
+// Transition: Disconnect from connected state
+transition disconnect(s: ConnectionState) -> ConnectionState
+pre s.state == 2                    // Must be Connected
+post s'.state == 3 and              // Move to Disconnecting
+     s'.retry_count == s.retry_count and
+     s'.timeout == 5
+
+// Transition: Disconnection completes
+transition disconnect_complete(s: ConnectionState) -> ConnectionState
+pre s.state == 3                    // Must be Disconnecting
+post s'.state == 0 and              // Back to Idle
+     s'.retry_count == 0 and
+     s'.timeout == 0
+
+// Transition: Timeout occurred
+transition timeout_occurred(s: ConnectionState) -> ConnectionState
+pre s.timeout > 0
+post s'.state == 4 and              // Move to Error
+     s'.retry_count == s.retry_count and
+     s'.timeout == 0
+
+// Transition: Reset from error state
+transition reset(s: ConnectionState) -> ConnectionState
+pre s.state == 4                    // Must be in Error
+post s'.state == 0 and              // Back to Idle
+     s'.retry_count == 0 and
+     s'.timeout == 0
+
+// Helper: Get state name (for debugging)
+fun state_name(state: Nat) -> Nat =
+  state  // In real implementation, would map to string
+
+// STATE TRANSITION TABLE:
+//
+//   From State  | Transition               | To State
+//   -----------|--------------------------|------------
+//   Idle (0)   | connect                  | Connecting (1)
+//   Connecting | connection_established   | Connected (2)
+//   Connecting | connection_failed        | Connecting (1) or Error (4)
+//   Connected  | disconnect               | Disconnecting (3)
+//   Disconnecting | disconnect_complete   | Idle (0)
+//   Any        | timeout_occurred         | Error (4)
+//   Error (4)  | reset                    | Idle (0)
+//
+// EXPECTED BEHAVIOR:
+// Happy path:
+//   Idle -> connect -> Connecting -> connection_established -> Connected
+//        -> disconnect -> Disconnecting -> disconnect_complete -> Idle
+//
+// Retry path:
+//   Idle -> connect -> Connecting -> connection_failed -> Connecting (retry 1)
+//        -> connection_failed -> Connecting (retry 2)
+//        -> connection_failed -> Connecting (retry 3)
+//        -> connection_failed -> Error
+//        -> reset -> Idle
+//
+// TRY IT:
+// 1. Start from Idle, can you disconnect? (No - precondition fails)
+// 2. What happens after 3 failed connection attempts?
+// 3. Can you transition from Error to Connected directly?

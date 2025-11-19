@@ -1,0 +1,93 @@
+// Tutorial 2: Set Operations
+// ==========================
+//
+// LEARNING OBJECTIVES:
+// - Work with Set types
+// - Use set operations (union, intersect, difference)
+// - Write quantified expressions (forall, exists)
+// - Understand set membership
+//
+// CONCEPTS COVERED:
+// - Set<T> type
+// - Set literals: {1, 2, 3}
+// - Set operations: union, intersect, \, in, not_in
+// - Quantifiers: forall x in S, exists x in S
+// - Set cardinality: card(S)
+//
+// COMPLEXITY: ⭐⭐ (Beginner+)
+
+// State: Managing a set of active processes
+type ProcessSet = {
+  active: Set<Nat>,      // Currently running processes
+  waiting: Set<Nat>,     // Processes waiting to run
+  finished: Set<Nat>     // Completed processes
+}
+
+// Invariant: Process IDs are disjoint across sets
+inv processes_disjoint(s: ProcessSet) =
+  s.active intersect s.waiting == {} and
+  s.active intersect s.finished == {} and
+  s.waiting intersect s.finished == {}
+
+// Invariant: No process ID exceeds 100
+inv process_ids_bounded(s: ProcessSet) =
+  forall p in s.active: p < 100 and
+  forall p in s.waiting: p < 100 and
+  forall p in s.finished: p < 100
+
+// Transition: Activate a waiting process
+transition activate(s: ProcessSet, pid: Nat) -> ProcessSet
+pre pid in s.waiting                    // Process must be waiting
+post s'.active == s.active union {pid} and
+     s'.waiting == s.waiting \ {pid} and
+     s'.finished == s.finished
+
+// Transition: Complete an active process
+transition complete(s: ProcessSet, pid: Nat) -> ProcessSet
+pre pid in s.active                     // Process must be active
+post s'.active == s.active \ {pid} and
+     s'.waiting == s.waiting and
+     s'.finished == s.finished union {pid}
+
+// Transition: Add new process to waiting queue
+transition spawn(s: ProcessSet, pid: Nat) -> ProcessSet
+pre pid not_in s.active and
+    pid not_in s.waiting and
+    pid not_in s.finished and
+    pid < 100                            // Enforce ID bound
+post s'.active == s.active and
+     s'.waiting == s.waiting union {pid} and
+     s'.finished == s.finished
+
+// Transition: Batch complete all active processes
+transition complete_all(s: ProcessSet) -> ProcessSet
+pre card(s.active) > 0                   // At least one active
+post s'.active == {} and
+     s'.waiting == s.waiting and
+     s'.finished == s.finished union s.active
+
+// Helper function: Check if any processes are running
+fun has_active_processes(s: ProcessSet) -> Bool =
+  card(s.active) > 0
+
+// Helper function: Total process count
+fun total_processes(s: ProcessSet) -> Nat =
+  card(s.active) + card(s.waiting) + card(s.finished)
+
+// EXPECTED BEHAVIOR:
+// Initial: {active = {}, waiting = {}, finished = {}}
+// After spawn(1): {active = {}, waiting = {1}, finished = {}}
+// After spawn(2): {active = {}, waiting = {1,2}, finished = {}}
+// After activate(1): {active = {1}, waiting = {2}, finished = {}}
+// After activate(2): {active = {1,2}, waiting = {}, finished = {}}
+// After complete(1): {active = {2}, waiting = {}, finished = {1}}
+// After complete(2): {active = {}, waiting = {}, finished = {1,2}}
+//
+// INVARIANTS HOLD:
+// ✓ processes_disjoint (sets never overlap)
+// ✓ process_ids_bounded (all IDs < 100)
+//
+// TRY IT:
+// 1. What happens if you try activate(1) when 1 is not in waiting?
+// 2. Can you spawn process 101? Why not?
+// 3. What does complete_all do when active = {1,2,3}?

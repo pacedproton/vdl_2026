@@ -1,0 +1,141 @@
+// Tutorial 4: Bounded Resource with Invariants
+// ============================================
+//
+// LEARNING OBJECTIVES:
+// - Define and check invariants
+// - Detect invariant violations
+// - Use invariants to enforce system properties
+//
+// CONCEPTS COVERED:
+// - Type invariants (in type definition)
+// - State invariants (inv ...)
+// - Invariant violation detection
+// - Resource bounds
+//
+// COMPLEXITY: ⭐⭐⭐ (Intermediate)
+
+// State: A resource pool with capacity limits
+type ResourcePool = {
+  allocated: Nat,       // Currently allocated resources
+  available: Nat,       // Available resources
+  total: Nat,           // Total resources in pool
+  requests: Nat         // Number of allocation requests
+}
+
+// TYPE INVARIANT: Total is always allocated + available
+// This is a fundamental consistency property
+inv total_correct(s: ResourcePool) =
+  s.total == s.allocated + s.available
+
+// SAFETY INVARIANT: Never over-allocate
+inv no_overallocation(s: ResourcePool) =
+  s.allocated <= s.total
+
+// SAFETY INVARIANT: Available is non-negative (already guaranteed by Nat type)
+inv available_valid(s: ResourcePool) =
+  s.available <= s.total
+
+// CAPACITY INVARIANT: Total resources bounded by system limit
+inv capacity_bounded(s: ResourcePool) =
+  s.total <= 100
+
+// FAIRNESS INVARIANT: If resources available, should be allocatable
+inv allocation_possible(s: ResourcePool) =
+  s.available > 0 implies true  // Can allocate if available
+
+// Transition: Allocate resources
+transition allocate(s: ResourcePool, amount: Nat) -> ResourcePool
+pre amount > 0 and
+    amount <= s.available            // Enough resources available
+post s'.allocated == s.allocated + amount and
+     s'.available == s.available - amount and
+     s'.total == s.total and
+     s'.requests == s.requests + 1
+
+// Transition: Release resources
+transition release(s: ResourcePool, amount: Nat) -> ResourcePool
+pre amount > 0 and
+    amount <= s.allocated            // Can't release more than allocated
+post s'.allocated == s.allocated - amount and
+     s'.available == s.available + amount and
+     s'.total == s.total and
+     s'.requests == s.requests
+
+// Transition: Expand pool capacity (add more resources)
+transition expand(s: ResourcePool, amount: Nat) -> ResourcePool
+pre amount > 0 and
+    s.total + amount <= 100          // Respect system limit
+post s'.allocated == s.allocated and
+     s'.available == s.available + amount and
+     s'.total == s.total + amount and
+     s'.requests == s.requests
+
+// Transition: Shrink pool capacity (remove unused resources)
+transition shrink(s: ResourcePool, amount: Nat) -> ResourcePool
+pre amount > 0 and
+    amount <= s.available            // Can only remove available resources
+post s'.allocated == s.allocated and
+     s'.available == s.available - amount and
+     s'.total == s.total - amount and
+     s'.requests == s.requests
+
+// BUGGY TRANSITION (for demonstration):
+// This transition violates invariants!
+// Uncomment to see invariant violation in state explorer
+//
+// transition buggy_allocate(s: ResourcePool, amount: Nat) -> ResourcePool
+// pre true
+// post s'.allocated == s.allocated + amount and
+//      s'.available == s.available and  // BUG: Forgot to decrease available!
+//      s'.total == s.total and
+//      s'.requests == s.requests + 1
+//
+// This would violate total_correct invariant:
+//   s'.total != s'.allocated + s'.available
+
+// Helper: Check if allocation is possible
+fun can_allocate(s: ResourcePool, amount: Nat) -> Bool =
+  amount <= s.available
+
+// Helper: Utilization percentage (scaled by 100 to avoid floats)
+fun utilization_percent(s: ResourcePool) -> Nat =
+  if s.total == 0
+  then 0
+  else (s.allocated * 100) / s.total
+
+// EXPECTED BEHAVIOR:
+//
+// Initial state: {allocated = 0, available = 50, total = 50, requests = 0}
+//
+// Sequence 1 (normal usage):
+//   allocate(10)  -> {allocated = 10, available = 40, total = 50, requests = 1}
+//   allocate(20)  -> {allocated = 30, available = 20, total = 50, requests = 2}
+//   release(10)   -> {allocated = 20, available = 30, total = 50, requests = 2}
+//   ✓ All invariants hold
+//
+// Sequence 2 (expansion):
+//   expand(30)    -> {allocated = 0, available = 80, total = 80, requests = 0}
+//   allocate(70)  -> {allocated = 70, available = 10, total = 80, requests = 1}
+//   ✓ All invariants hold
+//
+// Sequence 3 (boundary conditions):
+//   allocate(50)  -> {allocated = 50, available = 0, total = 50, requests = 1}
+//   allocate(10)  -> BLOCKED (pre-condition: 10 > 0 available)
+//   release(50)   -> {allocated = 0, available = 50, total = 50, requests = 1}
+//   ✓ All invariants hold
+//
+// Sequence 4 (violation attempt):
+//   expand(60)    -> BLOCKED (pre-condition: 50 + 60 > 100)
+//   ✓ Invariant capacity_bounded protected
+//
+// INVARIANT VIOLATIONS TO EXPLORE:
+// 1. What if allocate didn't decrease available? (total_correct violated)
+// 2. What if we could expand beyond 100? (capacity_bounded violated)
+// 3. What if release didn't check amount <= allocated? (could underflow)
+//
+// TRY IT:
+// 1. Start with {allocated=0, available=50, total=50, requests=0}
+// 2. Try allocate(60) - should fail precondition
+// 3. Try allocate(30) then release(40) - should fail precondition
+// 4. Explore state space and verify NO invariant violations
+// 5. Uncomment buggy_allocate and see violations appear!

@@ -5,3 +5,4 @@
 
 pub mod rcu;
 pub mod seqlock;
+pub mod tutorials;
