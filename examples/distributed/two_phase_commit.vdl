@@ -1,0 +1,162 @@
+// Two-Phase Commit (2PC): Atomic commit protocol for distributed transactions
+//
+// Roles:
+// - Coordinator: orchestrates the protocol
+// - Participants: vote and commit/abort
+//
+// Phases:
+// 1. Prepare: coordinator asks participants to vote
+// 2. Commit/Abort: coordinator decides based on votes
+//
+// Properties:
+// - Atomicity: all commit or all abort
+// - Safety: once committed, cannot abort
+// - Liveness: eventually terminates (with timeouts)
+
+type ParticipantId = Nat
+
+type Vote =
+  | VoteYes
+  | VoteNo
+  | VoteUnknown
+
+type Phase =
+  | Init
+  | Prepare
+  | Commit
+  | Abort
+
+type Decision =
+  | DecisionCommit
+  | DecisionAbort
+  | DecisionPending
+
+type TwoPhaseCommitState = {
+  participants: Set<ParticipantId>,
+  votes: Map<ParticipantId, Vote>,
+  phase: Phase,
+  decision: Decision,
+  committed: Set<ParticipantId>,
+  aborted: Set<ParticipantId>
+}
+
+// Invariant: participants are fixed
+inv participants_fixed(s: TwoPhaseCommitState) =
+  card(s.participants) > 0
+
+// Invariant: votes only from participants
+inv votes_valid(s: TwoPhaseCommitState) =
+  forall p in dom(s.votes):
+    p in s.participants
+
+// Invariant: committed/aborted are participants
+inv committed_valid(s: TwoPhaseCommitState) =
+  s.committed subset_of s.participants and
+  s.aborted subset_of s.participants
+
+// Invariant: no participant both committed and aborted
+inv no_mixed_outcomes(s: TwoPhaseCommitState) =
+  s.committed intersect s.aborted == {}
+
+// Phase 1: Coordinator broadcasts prepare
+transition broadcast_prepare(s: TwoPhaseCommitState) -> TwoPhaseCommitState
+pre s.phase == Init
+post s'.phase == Prepare and
+     s'.votes == {} and
+     s'.decision == DecisionPending and
+     s'.participants == s.participants and
+     s'.committed == s.committed and
+     s'.aborted == s.aborted
+
+// Phase 1: Participant votes yes
+transition vote_yes(s: TwoPhaseCommitState, p: ParticipantId) -> TwoPhaseCommitState
+pre s.phase == Prepare and
+    p in s.participants and
+    p not_in dom(s.votes)
+post s'.votes == s.votes with [p |-> VoteYes] and
+     s'.phase == s.phase and
+     s'.decision == s.decision and
+     s'.participants == s.participants and
+     s'.committed == s.committed and
+     s'.aborted == s.aborted
+
+// Phase 1: Participant votes no
+transition vote_no(s: TwoPhaseCommitState, p: ParticipantId) -> TwoPhaseCommitState
+pre s.phase == Prepare and
+    p in s.participants and
+    p not_in dom(s.votes)
+post s'.votes == s.votes with [p |-> VoteNo] and
+     s'.phase == s.phase and
+     s'.decision == s.decision and
+     s'.participants == s.participants and
+     s'.committed == s.committed and
+     s'.aborted == s.aborted
+
+// Phase 2: Coordinator decides commit (all yes)
+transition decide_commit(s: TwoPhaseCommitState) -> TwoPhaseCommitState
+pre s.phase == Prepare and
+    dom(s.votes) == s.participants and
+    (forall p in s.participants: s.votes(p) == VoteYes)
+post s'.phase == Commit and
+     s'.decision == DecisionCommit and
+     s'.votes == s.votes and
+     s'.participants == s.participants and
+     s'.committed == s.committed and
+     s'.aborted == s.aborted
+
+// Phase 2: Coordinator decides abort (any no)
+transition decide_abort(s: TwoPhaseCommitState) -> TwoPhaseCommitState
+pre s.phase == Prepare and
+    exists p in s.participants: s.votes(p) == VoteNo
+post s'.phase == Abort and
+     s'.decision == DecisionAbort and
+     s'.votes == s.votes and
+     s'.participants == s.participants and
+     s'.committed == s.committed and
+     s'.aborted == s.aborted
+
+// Phase 2: Participant commits
+transition participant_commit(s: TwoPhaseCommitState, p: ParticipantId) -> TwoPhaseCommitState
+pre s.phase == Commit and
+    p in s.participants and
+    p not_in s.committed
+post s'.committed == s.committed union {p} and
+     s'.phase == s.phase and
+     s'.decision == s.decision and
+     s'.votes == s.votes and
+     s'.participants == s.participants and
+     s'.aborted == s.aborted
+
+// Phase 2: Participant aborts
+transition participant_abort(s: TwoPhaseCommitState, p: ParticipantId) -> TwoPhaseCommitState
+pre s.phase == Abort and
+    p in s.participants and
+    p not_in s.aborted
+post s'.aborted == s.aborted union {p} and
+     s'.phase == s.phase and
+     s'.decision == s.decision and
+     s'.votes == s.votes and
+     s'.participants == s.participants and
+     s'.committed == s.committed
+
+// Safety: Atomicity - all commit or all abort
+inv atomicity(s: TwoPhaseCommitState) =
+  not (exists p in s.committed and exists q in s.aborted)
+
+// Safety: Cannot commit after any no vote
+inv no_commit_after_no(s: TwoPhaseCommitState) =
+  (exists p in s.participants: s.votes(p) == VoteNo) implies
+  s.decision != DecisionCommit
+
+// Safety: Commit decision requires unanimous yes
+inv commit_requires_unanimous(s: TwoPhaseCommitState) =
+  (s.decision == DecisionCommit) implies
+  (forall p in s.participants: s.votes(p) == VoteYes)
+
+// Safety: Once decided, decision is stable
+inv decision_stable(s: TwoPhaseCommitState) =
+  (s.decision != DecisionPending) implies
+  (s'.decision == s.decision)
+
+// Liveness: Eventually all participants decide
+// (In temporal logic: eventually(s.committed union s.aborted == s.participants))

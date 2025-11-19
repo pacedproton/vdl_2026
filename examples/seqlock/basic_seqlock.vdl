@@ -1,0 +1,64 @@
+// Seqlock: Writer-optimized reader-writer synchronization
+// Used extensively in Linux kernel for low-latency reads
+//
+// Protocol:
+// - Writers increment sequence number on entry/exit (making it odd during write)
+// - Readers check sequence before/after read (retry if changed or odd)
+//
+// Properties:
+// - Readers never block writers
+// - Writers make progress (no reader starvation of writers)
+// - Readers eventually succeed (assuming finite writes)
+
+type SeqlockState = {
+  seq: Nat,           // Sequence number (even=idle, odd=writing)
+  data: Int,          // Protected data
+  writing: Bool       // Writer active flag
+}
+
+// Type invariant: writing iff sequence is odd
+inv seq_parity(s: SeqlockState) =
+  s.writing iff (s.seq % 2 == 1)
+
+// Invariant: sequence number monotonically increases
+inv seq_monotonic(s: SeqlockState) =
+  s.seq >= old(s.seq)
+
+// Writer transition: begin write
+transition write_begin(s: SeqlockState) -> SeqlockState
+pre not s.writing
+post s'.seq == s.seq + 1 and
+     s'.writing == true and
+     s'.data == s.data
+
+// Writer transition: end write with new value
+transition write_end(s: SeqlockState, val: Int) -> SeqlockState
+pre s.writing
+post s'.seq == s.seq + 1 and
+     s'.writing == false and
+     s'.data == val
+
+// Reader helper: attempt read
+fun try_read(s: SeqlockState) -> (Int, Bool) =
+  let seq0 = s.seq in
+  let val = s.data in
+  let seq1 = s.seq in
+  if seq0 == seq1 and seq0 % 2 == 0
+  then (val, true)   // Success: consistent read
+  else (0, false)    // Failure: retry needed
+
+// Safety: sequence parity matches write state
+inv safety_parity(s: SeqlockState) =
+  (s.seq % 2 == 1) iff s.writing
+
+// Safety: no torn reads (if successful read, data was stable)
+inv safety_no_torn_reads(s: SeqlockState) =
+  forall seq0, val, seq1:
+    (seq0 == seq1 and seq0 % 2 == 0) implies
+    (val == s.data)  // Data was stable
+
+// Liveness: writers make progress
+// (In full temporal logic: always(writing implies eventually(not writing)))
+
+// Liveness: readers eventually succeed
+// (In full temporal logic: eventually_always(not writing) implies eventually(read_succeeds))

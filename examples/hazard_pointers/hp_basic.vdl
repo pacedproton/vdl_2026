@@ -1,0 +1,111 @@
+// Hazard Pointers: Lock-free memory reclamation
+// Prevents ABA problem and use-after-free in lock-free data structures
+//
+// Protocol:
+// - Each thread has K hazard pointer slots
+// - Before dereferencing, publish pointer in hazard slot
+// - Before freeing, check if pointer is in any hazard slot
+// - If hazarded, defer reclamation to retirement list
+//
+// Properties:
+// - No use-after-free: active pointers never freed
+// - Bounded memory: retirement list eventually drains
+// - Progress: non-hazarded memory eventually reclaimed
+
+type Pointer = Nat  // Pointer ID (0 = null)
+
+type HazardPointerState = {
+  active_pointers: Set<Pointer>,      // Currently allocated
+  hazard_slots: Map<Nat, Pointer>,    // Thread -> hazard pointer
+  retired: Set<Pointer>,              // Pending reclamation
+  freed: Set<Pointer>,                // Actually freed
+  next_ptr: Nat                       // Next pointer ID
+}
+
+// Invariant: hazard slots contain active or null pointers
+inv hazards_valid(s: HazardPointerState) =
+  forall slot in dom(s.hazard_slots):
+    s.hazard_slots(slot) == 0 or s.hazard_slots(slot) in s.active_pointers
+
+// Invariant: retired pointers were once active
+inv retired_were_active(s: HazardPointerState) =
+  s.retired subset_of (s.active_pointers union s.freed)
+
+// Invariant: freed pointers were once active or retired
+inv freed_were_active(s: HazardPointerState) =
+  s.freed subset_of (s.active_pointers union s.retired)
+
+// Invariant: no overlap between sets
+inv disjoint_sets(s: HazardPointerState) =
+  s.active_pointers intersect s.freed == {} and
+  s.retired intersect s.freed == {}
+
+// Transition: allocate new pointer
+transition allocate(s: HazardPointerState) -> HazardPointerState
+pre s.next_ptr not_in s.active_pointers
+post s'.active_pointers == s.active_pointers union {s.next_ptr} and
+     s'.next_ptr == s.next_ptr + 1 and
+     s'.hazard_slots == s.hazard_slots and
+     s'.retired == s.retired and
+     s'.freed == s.freed
+
+// Transition: set hazard pointer for thread
+transition set_hazard(s: HazardPointerState, thread: Nat, ptr: Pointer) -> HazardPointerState
+pre ptr == 0 or ptr in s.active_pointers
+post s'.hazard_slots == s.hazard_slots with [thread |-> ptr] and
+     s'.active_pointers == s.active_pointers and
+     s'.retired == s.retired and
+     s'.freed == s.freed and
+     s'.next_ptr == s.next_ptr
+
+// Transition: clear hazard pointer for thread
+transition clear_hazard(s: HazardPointerState, thread: Nat) -> HazardPointerState
+pre thread in dom(s.hazard_slots)
+post s'.hazard_slots == s.hazard_slots with [thread |-> 0] and
+     s'.active_pointers == s.active_pointers and
+     s'.retired == s.retired and
+     s'.freed == s.freed and
+     s'.next_ptr == s.next_ptr
+
+// Transition: retire pointer (mark for reclamation)
+transition retire(s: HazardPointerState, ptr: Pointer) -> HazardPointerState
+pre ptr in s.active_pointers and
+    ptr not_in s.retired
+post s'.retired == s.retired union {ptr} and
+     s'.active_pointers == s.active_pointers \ {ptr} and
+     s'.hazard_slots == s.hazard_slots and
+     s'.freed == s.freed and
+     s'.next_ptr == s.next_ptr
+
+// Transition: reclaim pointer (actually free it)
+transition reclaim(s: HazardPointerState, ptr: Pointer) -> HazardPointerState
+pre ptr in s.retired and
+    not is_hazarded(s, ptr)
+post s'.freed == s.freed union {ptr} and
+     s'.retired == s.retired \ {ptr} and
+     s'.active_pointers == s.active_pointers and
+     s'.hazard_slots == s.hazard_slots and
+     s'.next_ptr == s.next_ptr
+
+// Helper: check if pointer is in any hazard slot
+fun is_hazarded(s: HazardPointerState, ptr: Pointer) -> Bool =
+  exists thread in dom(s.hazard_slots):
+    s.hazard_slots(thread) == ptr
+
+// Safety: no use-after-free (hazarded pointers never freed)
+inv no_use_after_free(s: HazardPointerState) =
+  forall ptr in s.freed:
+    not is_hazarded(s, ptr)
+
+// Safety: active hazards point to non-freed memory
+inv hazards_safe(s: HazardPointerState) =
+  forall thread in dom(s.hazard_slots):
+    let ptr = s.hazard_slots(thread) in
+    (ptr != 0) implies (ptr not_in s.freed)
+
+// Liveness: non-hazarded retired pointers eventually reclaimed
+// (In temporal logic: always(ptr in retired and not is_hazarded(s, ptr)
+//                           implies eventually(ptr in freed)))
+
+// Liveness: bounded retirement list
+// (In temporal logic: always(card(retired) < MAX_RETIRED))

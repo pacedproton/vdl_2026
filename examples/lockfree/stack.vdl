@@ -1,0 +1,81 @@
+// Treiber Stack: Lock-free LIFO data structure
+// Classic lock-free algorithm using single-word CAS
+//
+// Operations:
+// - push: CAS new node as head
+// - pop: CAS remove head
+//
+// Properties:
+// - Linearizable
+// - Wait-free push (under no memory exhaustion)
+// - Lock-free pop
+// - LIFO ordering preserved
+
+type Node = {
+  value: Int,
+  next: Nat  // Node ID (0 = null)
+}
+
+type StackState = {
+  head: Nat,              // Head node ID (0 = empty)
+  nodes: Map<Nat, Node>,  // Node storage
+  next_id: Nat            // Next available ID
+}
+
+// Invariant: head points to valid node or null
+inv head_valid(s: StackState) =
+  s.head == 0 or s.head in dom(s.nodes)
+
+// Invariant: all next pointers valid
+inv next_valid(s: StackState) =
+  forall id in dom(s.nodes):
+    s.nodes(id).next == 0 or s.nodes(id).next in dom(s.nodes)
+
+// Invariant: no cycles (acyclic linked list)
+inv acyclic(s: StackState) =
+  not exists path: is_cycle(s.nodes, path)
+
+// Helper: check if path forms cycle
+fun is_cycle(nodes: Map<Nat, Node>, path: List<Nat>) -> Bool =
+  len(path) > 1 and head(path) == last(path)
+
+// Push operation: add to top
+transition push(s: StackState, val: Int) -> StackState
+pre s.next_id not_in dom(s.nodes)
+post let new_node = {value = val, next = s.head} in
+     s'.head == s.next_id and
+     s'.nodes == s.nodes with [s.next_id |-> new_node] and
+     s'.next_id == s.next_id + 1
+
+// Pop operation: remove from top
+transition pop(s: StackState) -> (StackState, Option<Int>)
+pre s.head != 0
+post let old_head = s.nodes(s.head) in
+     s'.head == old_head.next and
+     s'.nodes == s.nodes \ {s.head} and
+     s'.next_id == s.next_id and
+     result == Some(old_head.value)
+
+// Pop empty stack
+transition pop_empty(s: StackState) -> (StackState, Option<Int>)
+pre s.head == 0
+post s' == s and result == None
+
+// Safety: LIFO ordering
+inv lifo_order(s: StackState) =
+  forall push_val, pop_val:
+    (last_push(s) == push_val and last_pop(s) == pop_val) implies
+    push_val == pop_val
+
+// Safety: no lost elements
+inv no_lost_elements(s: StackState) =
+  forall id in dom(s.nodes):
+    reachable_from_head(s, id)
+
+// Helper: element reachable from head
+fun reachable_from_head(s: StackState, target: Nat) -> Bool =
+  exists path:
+    head(path) == s.head and
+    last(path) == target and
+    forall i in 1..(len(path)-1):
+      path(i+1) == s.nodes(path(i)).next
