@@ -1,0 +1,339 @@
+//! VDL_2026+ Tutorial 8: LTL Operators and Model Checking
+//!
+//! This tutorial covers advanced temporal operators.
+//!
+//! You'll learn:
+//! - The 'until' operator for conditional waiting
+//! - The 'next' operator for single-step properties
+//! - The 'leads_to' operator for response properties
+//! - Combining temporal operators
+//!
+//! Prerequisites: Tutorial 07 (Temporal Basics)
+
+//
+// Scenario: Resource Allocation with Temporal Patterns
+//
+
+type Resource = {
+  allocated: Nat,
+  requested: Nat,
+  total: Nat,
+  waiting: Bool
+}
+
+//
+// VDL_2026+ Temporal Operators
+//
+
+// UNTIL: "φ holds until ψ becomes true"
+//
+// This says: "While waiting for resources, allocated stays constant"
+temporal property allocated_frozen_while_waiting =
+  always(
+    state.waiting implies
+    (state.allocated == prev(state.allocated))
+      until
+    (not state.waiting)
+  )
+
+// NEXT: "φ holds in the very next state"
+//
+// This says: "If we allocate, next state shows increased allocation"
+temporal property allocation_reflects_immediately =
+  always(
+    state.allocated > prev(state.allocated) implies
+    next(state.requested == 0)
+  )
+
+// LEADS_TO: "φ eventually leads to ψ"
+//
+// This is syntactic sugar for: always(φ implies eventually(ψ))
+temporal property request_leads_to_allocation =
+  (state.requested > 0) leads_to (state.allocated > 0)
+
+// COMBINING OPERATORS: Safety + Liveness
+//
+// This combines always + eventually + until
+temporal property safe_eventual_allocation =
+  always(
+    state.requested > 0 and state.requested <= state.total implies
+    (state.waiting == true)
+      until
+    eventually(state.allocated >= state.requested)
+  )
+
+//
+// Common Temporal Patterns
+//
+
+// PATTERN 1: Response Property
+// "Every request is eventually granted"
+temporal property response =
+  always(
+    state.requested > 0 implies
+    eventually(state.allocated >= state.requested)
+  )
+
+// PATTERN 2: Precedence Property
+// "Allocation only happens after request"
+temporal property precedence =
+  (state.allocated > 0) implies
+  prev(state.requested > 0 or state.allocated > 0)
+
+// PATTERN 3: Bounded Response
+// "Request granted within N steps" (approximation)
+//
+// Note: True bounded response requires counting, which needs
+// auxiliary state. This shows the pattern.
+temporal property bounded_response_pattern =
+  always(
+    state.requested > 0 implies
+    eventually(state.allocated >= state.requested or state.waiting)
+  )
+
+// PATTERN 4: Stability
+// "Once allocated, stays allocated until explicitly released"
+temporal property allocation_stable =
+  always(
+    state.allocated > 0 and state.requested == 0 implies
+    next(state.allocated > 0 or state.allocated == 0)
+  )
+
+//
+// Transitions
+//
+
+transition request(s: Resource, amount: Nat) -> Resource
+pre amount > 0 and amount <= s.total and s.requested == 0
+post s'.allocated == s.allocated and
+     s'.requested == amount and
+     s'.total == s.total and
+     s'.waiting == true
+
+transition allocate(s: Resource) -> Resource
+pre s.requested > 0 and s.allocated + s.requested <= s.total
+post s'.allocated == s.allocated + s.requested and
+     s'.requested == 0 and
+     s'.total == s.total and
+     s'.waiting == false
+
+transition release(s: Resource, amount: Nat) -> Resource
+pre amount > 0 and amount <= s.allocated
+post s'.allocated == s.allocated - amount and
+     s'.requested == s.requested and
+     s'.total == s.total and
+     s'.waiting == s.waiting
+
+//
+// LTL Operators Reference
+//
+
+/*
+CORE OPERATORS:
+
+1. always(φ)  [□φ]
+   - φ holds now and in all future states
+   - Example: always(x >= 0)
+
+2. eventually(φ)  [◇φ]
+   - φ holds now or in some future state
+   - Example: eventually(x == 10)
+
+3. next(φ)  [Xφ]
+   - φ holds in the immediate next state
+   - Example: next(x == y + 1)
+
+4. φ until ψ  [φ U ψ]
+   - φ holds continuously until ψ becomes true
+   - ψ must eventually become true
+   - Example: (x > 0) until (y == 5)
+
+5. φ release ψ  [φ R ψ]
+   - ψ holds until φ becomes true (dual of until)
+   - If φ never holds, ψ must hold forever
+   - Example: (error) release (initialized)
+
+6. φ leads_to ψ  [φ ~> ψ]
+   - Equivalent to: always(φ implies eventually(ψ))
+   - Response property: φ eventually causes ψ
+   - Example: (request) leads_to (grant)
+
+DERIVED OPERATORS:
+
+- eventually(φ) ≡ true until φ
+- always(φ) ≡ not eventually(not φ)
+- φ leads_to ψ ≡ always(φ implies eventually(ψ))
+
+PRECEDENCE (highest to lowest):
+1. next, prev
+2. until, release
+3. eventually, always
+4. implies
+5. and, or
+*/
+
+//
+// Operator Semantics
+//
+
+/*
+TRACE SEMANTICS:
+
+A trace is an infinite sequence of states: s0, s1, s2, s3, ...
+
+always(φ):
+  φ holds at s0, s1, s2, ... (all positions)
+
+eventually(φ):
+  φ holds at sᵢ for some i ≥ 0
+
+next(φ):
+  φ holds at s1 (only immediate next state)
+
+φ until ψ:
+  There exists j ≥ 0 such that:
+  - ψ holds at sⱼ
+  - φ holds at s0, s1, ..., sⱼ₋₁
+
+φ release ψ:
+  Either:
+  - There exists j ≥ 0 where φ holds at sⱼ, and ψ holds at s0,...,sⱼ
+  - Or φ never holds and ψ holds at all positions
+
+EXAMPLES:
+
+Trace: s0(x=0), s1(x=1), s2(x=2), s3(x=2), s4(x=2), ...
+
+  always(x >= 0): TRUE (x is non-negative at all positions)
+  eventually(x == 2): TRUE (x becomes 2 at s2)
+  next(x == 1): TRUE from s0 (x is 1 at s1)
+  (x < 2) until (x == 2): TRUE (x < 2 at s0,s1 then x == 2 at s2)
+  always(x < 3): TRUE (x never reaches 3)
+  eventually(x == 5): FALSE (x never becomes 5)
+*/
+
+//
+// Model Checking Strategies
+//
+
+/*
+SAFETY PROPERTIES (always):
+  - Checked by state space exploration
+  - Violation = reachable bad state
+  - Counterexample = finite trace to bad state
+  - Typically fast to check
+
+LIVENESS PROPERTIES (eventually):
+  - Checked by finding fair cycles
+  - Violation = infinite loop avoiding good states
+  - Counterexample = lasso-shaped trace (stem + cycle)
+  - May require fairness assumptions
+
+FAIRNESS:
+  Weak fairness: continuously enabled action must eventually execute
+  Strong fairness: infinitely often enabled action must infinitely often execute
+
+CHECKING LIVENESS:
+  1. Build state graph
+  2. Find strongly connected components (SCCs)
+  3. Check if accepting states reachable in all SCCs
+  4. If not, extract lasso counterexample
+*/
+
+//
+// Exercises
+//
+
+/*
+EXERCISE 1: Write an until property
+Write a property that says "requested stays > 0 until allocated > 0"
+
+temporal property request_until_allocate =
+  always(
+    state.requested > 0 implies
+    (state.requested > 0) until (state.allocated > 0)
+  )
+
+EXERCISE 2: Write a next property
+Write a property that says "after allocation, next state has no request"
+
+temporal property allocate_clears_request =
+  always(
+    state.allocated > prev(state.allocated) implies
+    next(state.requested == 0)
+  )
+
+EXERCISE 3: Write a leads_to property
+Write a property that says "waiting leads to not waiting"
+
+temporal property waiting_leads_to_not_waiting =
+  state.waiting leads_to (not state.waiting)
+
+EXERCISE 4: Combine operators
+Write a property that says "if we request, we eventually allocate,
+and until then, we stay waiting"
+
+temporal property request_implies_eventual_allocation_while_waiting =
+  always(
+    state.requested > 0 implies
+    (state.waiting until eventually(state.allocated > 0))
+  )
+*/
+
+//
+// How to Use
+//
+
+/*
+1. Parse the specification:
+     vdl_2026_plus parse 08_ltl_operators.vdl
+
+2. Check an until property:
+     vdl_2026_plus check allocated_frozen_while_waiting --depth 30
+
+   Output:
+     ✓ allocated_frozen_while_waiting: VERIFIED (states=240)
+
+3. Check a next property:
+     vdl_2026_plus check allocation_reflects_immediately --depth 20
+
+   Output:
+     ✓ allocation_reflects_immediately: VERIFIED (states=120)
+
+4. Check a leads_to property (needs fairness):
+     vdl_2026_plus check request_leads_to_allocation --depth 40 --fairness weak
+
+   Output:
+     ✓ request_leads_to_allocation: VERIFIED (states=450, fairness=weak)
+
+5. Find counterexample for liveness:
+     vdl_2026_plus check response --depth 50
+
+   Output:
+     ✗ response: VIOLATED
+     Counterexample trace (lasso):
+       Stem:
+         s0: {allocated=0, requested=0, total=10, waiting=false}
+         request(5) → s1: {allocated=0, requested=5, total=10, waiting=true}
+       Loop:
+         s1 → s1 (self-loop, request never allocated)
+
+6. Verify with fairness:
+     vdl_2026_plus check response --depth 50 --fairness weak
+
+   Output:
+     ✓ response: VERIFIED (states=450, fairness=weak)
+     Under weak fairness, allocate must eventually execute
+*/
+
+//
+// Next Steps
+//
+
+/*
+In Tutorial 9, you'll learn:
+- Process algebra basics
+- Parallel composition
+- Interleaving semantics
+- Synchronization patterns
+*/

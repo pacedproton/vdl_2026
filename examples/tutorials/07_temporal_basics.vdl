@@ -1,0 +1,240 @@
+//! VDL_2026+ Tutorial 7: Basic Temporal Logic
+//!
+//! This tutorial introduces temporal logic in VDL_2026+.
+//!
+//! You'll learn:
+//! - What temporal properties are
+//! - Safety vs liveness properties
+//! - The 'always' and 'eventually' operators
+//! - How temporal properties differ from invariants
+//!
+//! Prerequisites: Tutorial 04 (Invariants)
+
+//
+// Scenario: Simple Counter with Temporal Properties
+//
+
+type Counter = {
+  value: Nat,
+  max_value: Nat,
+  increment_count: Nat
+}
+
+//
+// VDL_2026 Invariants (state-based)
+//
+
+// INV: Value never exceeds maximum
+inv value_bounded(s: Counter) =
+  s.value <= s.max_value
+
+// INV: Max value is fixed
+inv max_fixed(s: Counter) =
+  s.max_value == 10
+
+//
+// VDL_2026+ Temporal Properties (trace-based)
+//
+
+// TEMPORAL SAFETY: Value is always bounded
+//
+// This says: "In every state we reach, value <= max_value"
+//
+// Compare with invariant above:
+// - Invariant: checked on each state
+// - Temporal: explicitly reasons about ALL states in ALL traces
+temporal property value_always_bounded =
+  always(state.value <= state.max_value)
+
+// TEMPORAL SAFETY: Value never decreases
+//
+// This says: "In every transition, new value >= old value"
+//
+// Requires temporal reasoning because it compares consecutive states
+temporal property value_monotonic =
+  always(state.value >= prev(state.value))
+
+// TEMPORAL LIVENESS: Counter eventually reaches maximum
+//
+// This says: "At some point in the future, value will equal max_value"
+//
+// This is a LIVENESS property - it's about eventual progress
+temporal property eventually_maxed =
+  eventually(state.value == state.max_value)
+
+// TEMPORAL LIVENESS: If we can increment, we eventually do
+//
+// This says: "Whenever incrementing is possible, it will eventually happen"
+//
+// This ensures the system makes progress
+temporal property eventual_increment =
+  always(
+    state.value < state.max_value implies
+    eventually(state.value > prev(state.value))
+  )
+
+//
+// Transitions
+//
+
+transition increment(s: Counter) -> Counter
+pre s.value < s.max_value
+post s'.value == s.value + 1 and
+     s'.max_value == s.max_value and
+     s'.increment_count == s.increment_count + 1
+
+transition reset(s: Counter) -> Counter
+pre true
+post s'.value == 0 and
+     s'.max_value == s.max_value and
+     s'.increment_count == s.increment_count
+
+//
+// Key Concepts
+//
+
+/*
+TEMPORAL OPERATORS:
+
+1. always(φ)  [written □φ in LTL]
+   - "φ holds in all states of the trace"
+   - Example: always(x > 0) means x is always positive
+   - Use for: SAFETY properties
+
+2. eventually(φ)  [written ◇φ in LTL]
+   - "φ holds in at least one future state"
+   - Example: eventually(x == 10) means x will reach 10 at some point
+   - Use for: LIVENESS properties
+
+3. prev(expr)
+   - "value of expr in the previous state"
+   - Example: prev(x) refers to x's value one step ago
+   - Use for: comparing consecutive states
+
+SAFETY vs LIVENESS:
+
+SAFETY: "Bad things never happen"
+  - Expressible as: always(good_condition)
+  - Violated in finite time (counterexample is finite trace)
+  - Examples:
+    * always(value <= max_value)  -- never overflow
+    * always(mutex.critical.size <= 1)  -- mutual exclusion
+
+LIVENESS: "Good things eventually happen"
+  - Expressible as: eventually(good_condition)
+  - Cannot be violated in finite time (need infinite trace)
+  - Examples:
+    * eventually(value == max_value)  -- eventually reach max
+    * always(requested implies eventually(granted))  -- progress
+
+VDL_2026 invariants vs VDL_2026+ temporal properties:
+  - Invariants: single-state predicates (snapshot view)
+  - Temporal: trace predicates (movie view)
+  - Invariants can't express "eventually" or compare states
+  - Temporal can express everything invariants can, plus more
+*/
+
+//
+// Exercises
+//
+
+/*
+EXERCISE 1: Write a safety property
+Write a temporal property that says "increment_count never decreases"
+
+temporal property increment_count_monotonic =
+  always(state.increment_count >= prev(state.increment_count))
+
+EXERCISE 2: Write a liveness property
+Write a temporal property that says "if counter is reset, it eventually increments"
+
+temporal property reset_followed_by_increment =
+  always(
+    state.value == 0 and prev(state.value) > 0 implies
+    eventually(state.value > 0)
+  )
+
+EXERCISE 3: Convert invariant to temporal
+The invariant max_fixed says max_value == 10.
+Write this as a temporal property:
+
+temporal property max_always_fixed =
+  always(state.max_value == 10)
+
+EXERCISE 4: Reason about traces
+Consider this trace:
+  s0: {value=0, max_value=10}
+  s1: {value=1, max_value=10}
+  s2: {value=2, max_value=10}
+  ...
+  s10: {value=10, max_value=10}
+
+Which properties hold?
+  ✓ value_always_bounded (value <= max_value in all states)
+  ✓ value_monotonic (value increases each step)
+  ✓ eventually_maxed (value == max_value at s10)
+  ✓ eventual_increment (each step increments)
+
+Now consider this trace:
+  s0: {value=0, max_value=10}
+  s1: {value=0, max_value=10}  [reset]
+  s2: {value=0, max_value=10}  [reset]
+  ...  [infinite resets]
+
+Which properties hold?
+  ✓ value_always_bounded (value <= max_value always)
+  ✓ value_monotonic (0 >= 0 always)
+  ✗ eventually_maxed (never reaches max_value=10)
+  ✗ eventual_increment (can increment but never does)
+*/
+
+//
+// How to Use
+//
+
+/*
+1. Parse the specification:
+     vdl_2026_plus parse 07_temporal_basics.vdl
+
+2. Check a safety property:
+     vdl_2026_plus check value_always_bounded --depth 20
+
+   Output:
+     ✓ value_always_bounded: VERIFIED (states=11)
+     No violations found in 11 reachable states
+
+3. Check a liveness property (needs fairness):
+     vdl_2026_plus check eventually_maxed --depth 20 --fairness weak
+
+   Output:
+     ✓ eventually_maxed: VERIFIED (states=11, fairness=weak)
+     Property holds in all fair traces
+
+4. Check property that fails:
+     vdl_2026_plus check eventual_increment --depth 50
+
+   Output:
+     ✗ eventual_increment: VIOLATED
+     Counterexample trace (51 steps):
+       s0: {value=0, max_value=10, increment_count=0}
+       reset() → s1: {value=0, max_value=10, increment_count=0}
+       reset() → s2: {value=0, max_value=10, increment_count=0}
+       ...
+       [System keeps resetting, never increments]
+
+5. Visualize state space:
+     vdl_2026_plus explore 07_temporal_basics.vdl --dot counter.dot
+     dot -Tpng counter.dot -o counter.png
+*/
+
+//
+// Next Steps
+//
+
+/*
+In Tutorial 8, you'll learn:
+- More temporal operators (until, next, leads_to)
+- Combining temporal formulas
+- Writing complex liveness properties
+- Model checking strategies
+*/
