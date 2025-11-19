@@ -43,6 +43,60 @@ pub enum Token {
     #[token("with")]
     With,
 
+    // VDL_2026+ Temporal logic keywords
+    #[token("temporal")]
+    Temporal,
+    #[token("always")]
+    Always,
+    #[token("eventually")]
+    Eventually,
+    #[token("next")]
+    Next,
+    #[token("until")]
+    Until,
+    #[token("release")]
+    Release,
+    #[token("leads_to")]
+    LeadsTo,
+
+    // VDL_2026+ Process algebra keywords
+    #[token("process")]
+    Process,
+    #[token("parallel")]
+    Parallel,
+    #[token("interleave")]
+    Interleave,
+    #[token("choice")]
+    Choice,
+
+    // VDL_2026+ Type system keywords
+    #[token("where")]
+    Where,
+    #[token("requires")]
+    Requires,
+    #[token("ensures")]
+    Ensures,
+
+    // VDL_2026+ Proof keywords
+    #[token("proof")]
+    Proof,
+    #[token("lemma")]
+    Lemma,
+    #[token("theorem")]
+    Theorem,
+    #[token("by")]
+    By,
+    #[token("auto")]
+    Auto,
+    #[token("smt")]
+    Smt,
+    #[token("induction")]
+    Induction,
+    #[token("unfold")]
+    Unfold,
+    #[token("model_check")]
+    ModelCheck,
+
     // Type keywords
     #[token("Nat")]
     TyNat,

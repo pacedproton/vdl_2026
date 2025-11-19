@@ -19,13 +19,19 @@ pub struct Span {
 /// Identifier (variable, type, or function name)
 pub type Ident = String;
 
-/// A complete VDL++ specification
+/// A complete VDL_2026+ specification
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Specification {
     pub type_defs: Vec<TypeDef>,
     pub functions: Vec<FunctionDef>,
     pub transitions: Vec<TransitionDef>,
     pub invariants: Vec<InvariantDef>,
+    #[serde(default)]
+    pub processes: Vec<ProcessDef>,              // VDL_2026+
+    #[serde(default)]
+    pub temporal_properties: Vec<TemporalProperty>,  // VDL_2026+
+    #[serde(default)]
+    pub proofs: Vec<ProofDef>,                   // VDL_2026+
 }
 
 impl Specification {
@@ -35,6 +41,9 @@ impl Specification {
             functions: Vec::new(),
             transitions: Vec::new(),
             invariants: Vec::new(),
+            processes: Vec::new(),
+            temporal_properties: Vec::new(),
+            proofs: Vec::new(),
         }
     }
 }
@@ -210,4 +219,142 @@ impl Default for Specification {
     fn default() -> Self {
         Self::new()
     }
+}
+
+//
+// VDL_2026+ Extensions: Process Algebra
+//
+
+/// Process definition (process algebra)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessDef {
+    pub name: Ident,
+    pub params: Vec<(Ident, Type)>,
+    pub body: ProcessExpr,
+    pub span: Option<Span>,
+}
+
+/// Process expressions (process algebra semantics)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ProcessExpr {
+    /// Nil process (deadlock)
+    Nil,
+    
+    /// Action prefix: transition -> P
+    Prefix(Ident, Vec<Expr>, Box<ProcessExpr>),
+    
+    /// Parallel composition: P | Q (synchronous)
+    Parallel(Box<ProcessExpr>, Box<ProcessExpr>),
+    
+    /// Interleaving: P ||| Q (asynchronous)
+    Interleave(Box<ProcessExpr>, Box<ProcessExpr>),
+    
+    /// Choice: P + Q (non-deterministic)
+    Choice(Box<ProcessExpr>, Box<ProcessExpr>),
+    
+    /// Process call
+    Call(Ident, Vec<Expr>),
+    
+    /// Conditional process
+    If(Expr, Box<ProcessExpr>, Box<ProcessExpr>),
+}
+
+//
+// VDL_2026+ Extensions: Temporal Logic
+//
+
+/// Temporal property definition (LTL/CTL)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemporalProperty {
+    pub name: Ident,
+    pub kind: PropertyKind,
+    pub formula: TemporalFormula,
+    pub span: Option<Span>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum PropertyKind {
+    Safety,    // Should always hold
+    Liveness,  // Should eventually hold
+    Fairness,  // Should hold infinitely often
+}
+
+/// Temporal logic formulas (LTL/CTL)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TemporalFormula {
+    /// State predicate
+    Pred(Expr),
+    
+    /// Negation
+    Not(Box<TemporalFormula>),
+    
+    /// Conjunction
+    And(Box<TemporalFormula>, Box<TemporalFormula>),
+    
+    /// Disjunction
+    Or(Box<TemporalFormula>, Box<TemporalFormula>),
+    
+    /// Implication
+    Implies(Box<TemporalFormula>, Box<TemporalFormula>),
+    
+    /// LTL: Next state (X φ)
+    Next(Box<TemporalFormula>),
+    
+    /// LTL: Always/Globally (□ φ or G φ)
+    Always(Box<TemporalFormula>),
+    
+    /// LTL: Eventually/Finally (◇ φ or F φ)
+    Eventually(Box<TemporalFormula>),
+    
+    /// LTL: Until (φ U ψ)
+    Until(Box<TemporalFormula>, Box<TemporalFormula>),
+    
+    /// LTL: Release (φ R ψ)
+    Release(Box<TemporalFormula>, Box<TemporalFormula>),
+    
+    /// Leads-to (□(φ ⇒ ◇ψ))
+    LeadsTo(Box<TemporalFormula>, Box<TemporalFormula>),
+}
+
+//
+// VDL_2026+ Extensions: Proof System
+//
+
+/// Proof definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProofDef {
+    pub name: Ident,
+    pub kind: ProofKind,
+    pub statement: Expr,
+    pub tactic: Tactic,
+    pub span: Option<Span>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ProofKind {
+    Lemma,
+    Theorem,
+    Proof,
+}
+
+/// Proof tactics
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Tactic {
+    /// Automatic proof search
+    Auto,
+    
+    /// SMT solver
+    Smt,
+    
+    /// Model checking (bounded)
+    ModelCheck { depth: Option<u64> },
+    
+    /// Induction
+    Induction { var: Ident, cases: Vec<(Expr, Tactic)> },
+    
+    /// Unfold definition
+    Unfold(Ident),
+    
+    /// Sequence of tactics
+    Seq(Vec<Tactic>),
 }

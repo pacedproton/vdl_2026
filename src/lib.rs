@@ -22,6 +22,7 @@ pub mod error;
 pub mod eval;
 pub mod explorer;
 pub mod lexer;
+pub mod ltl;        // VDL_2026+ LTL model checker
 pub mod models;
 pub mod parser;
 pub mod value;
